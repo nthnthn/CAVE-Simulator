@@ -437,11 +437,9 @@ private:
 
 	uvec2 _renderTargetSize;
 	uvec2 _mirrorSize;
-	
-	int state = 0;
+
 	ovrInputState inputState;
-	bool pressA, pressB, pressX = false;
-	float defaultIODL, defaultIODR;
+	bool pressA, pressB = false;
 
 public:
 
@@ -459,10 +457,6 @@ public:
 				ovrMatrix4f_Projection(erd.Fov, 0.01f, 1000.0f, ovrProjection_ClipRangeOpenGL);
 			_eyeProjections[eye] = ovr::toGlm(ovrPerspectiveProjection);
 			_viewScaleDesc.HmdToEyeOffset[eye] = erd.HmdToEyeOffset;
-			if (eye == ovrEye_Left)
-				defaultIODL = erd.HmdToEyeOffset.x;
-			else
-				defaultIODR = erd.HmdToEyeOffset.x;
 			ovrFovPort & fov = _sceneLayer.Fov[eye] = _eyeRenderDescs[eye].Fov;
 			auto eyeSize = ovr_GetFovTextureSize(_session, eye, fov, 1.0f);
 			_sceneLayer.Viewport[eye].Size = eyeSize;
@@ -555,50 +549,61 @@ protected:
 
 		if (OVR_SUCCESS(ovr_GetInputState(_session, ovrControllerType_Touch, &inputState))) {
 			
-			// cycle through 4 eye states
+			// viewpoint on right hand
+			if (inputState.HandTrigger[ovrHand_Right] > 0.5f) {
+
+			}
+
+			// debug
 			if (inputState.Buttons & ovrButton_A && !pressA) {
-				state = ((state + 1) % 4);
+				std::cerr << "A Pressed\n";
 				pressA = true;
 			}
-			else if (!(inputState.Buttons & ovrButton_A)) {
+			else if (!(inputState.Buttons & ovrButton_A) && pressA) {
+				std::cerr << "A Released\n";
 				pressA = false;
 			}
 
-			// cycle through tracking states
+			// freeze viewpoint
 			if (inputState.Buttons & ovrButton_B && !pressB) {
-				changeState();
+				std::cerr << "B Pressed\n";
 				pressB = true;
 			}
-			else if (!(inputState.Buttons & ovrButton_B)) {
+			else if (!(inputState.Buttons & ovrButton_B) && pressB) {
+				std::cerr << "B Released\n";
 				pressB = false;
 			}
 
-			// change cube size
-			if (inputState.Thumbstick[ovrHand_Left].x > 0.5f) {
+			// left/right
+			if (inputState.Thumbstick[ovrHand_Left].x > 0.6f) {
+				moveLittleBox(vec3(0.01f, 0.0f, 0.0f));
+			}
+			else if (inputState.Thumbstick[ovrHand_Left].x < -0.6f) {
+				moveLittleBox(vec3(-0.01f, 0.0f, 0.0f));
+			}
+
+			// forward/backward
+			if (inputState.Thumbstick[ovrHand_Left].y > 0.6f) {
+				moveLittleBox(vec3(0.0f, 0.0f, -0.01f));
+			}
+			else if (inputState.Thumbstick[ovrHand_Left].y < -0.6f) {
+				moveLittleBox(vec3(0.0f, 0.0f, 0.01f));
+			}
+
+			// cube size
+			if (inputState.Thumbstick[ovrHand_Right].x > 0.6f) {
 				changeScale(-1);
 			}
-			else if (inputState.Thumbstick[ovrHand_Left].x < -0.5f) {
+			else if (inputState.Thumbstick[ovrHand_Right].x < -0.6f) {
 				changeScale(1);
 			}
 
-			// reset cube size
-			if (inputState.Buttons & ovrButton_LThumb) {
-				changeScale(0);
+			// up/down
+			if (inputState.Thumbstick[ovrHand_Right].y > 0.6f) {
+				moveLittleBox(vec3(0.0f, 0.01f, 0.0f));
 			}
-
-			// change view mode
-			if (inputState.Buttons & ovrButton_X && !pressX) {
-				changeView();
-				pressX = true;
-			}
-			else if (!(inputState.Buttons & ovrButton_X)) {
-				pressX = false;
-			}
-
-			// reset IOD
-			if (inputState.Buttons & ovrButton_RThumb) {
-				_viewScaleDesc.HmdToEyeOffset[ovrEye_Left].x = defaultIODL;
-				_viewScaleDesc.HmdToEyeOffset[ovrEye_Right].x = defaultIODR;
+			else if (inputState.Thumbstick[ovrHand_Right].y < -0.6f) {
+				moveLittleBox(vec3(0.0f, -0.01f, 0.0f));
 			}
 		}
 
@@ -610,41 +615,11 @@ protected:
 		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, curTexId, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		ovr::for_each_eye([&](ovrEyeType eye) {
-			if (inputState.Thumbstick[ovrHand_Right].x > 0.5f && _viewScaleDesc.HmdToEyeOffset[ovrEye_Right].x < 0.5f) {
-				if (eye == ovrEye_Left)
-					_viewScaleDesc.HmdToEyeOffset[eye].x -= .001f;
-				if (eye == ovrEye_Right)
-					_viewScaleDesc.HmdToEyeOffset[eye].x += .001f;
-			}
-			else if (inputState.Thumbstick[ovrHand_Right].x < -0.5f && _viewScaleDesc.HmdToEyeOffset[ovrEye_Right].x > 0.0f) {
-				if (eye == ovrEye_Left)
-					_viewScaleDesc.HmdToEyeOffset[eye].x += .001f;
-				if (eye == ovrEye_Right)
-					_viewScaleDesc.HmdToEyeOffset[eye].x -= .001f;
-			}
 			const auto& vp = _sceneLayer.Viewport[eye];
 			glViewport(vp.Pos.x, vp.Pos.y, vp.Size.w, vp.Size.h);
 			_sceneLayer.RenderPose[eye] = eyePoses[eye];
-			
-			// Normal
-			if (state == 0) {
-				renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye);
-			}
+			renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye);
 
-			// Mono
-			else if (state == 1) {
-				renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[ovrEye_Left]), eye);
-			}
-
-			// Left eye only
-			else if (state == 2) {
-				if (eye == ovrEye_Left) renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye);
-			}
-
-			// right eye only
-			else {
-				if (eye == ovrEye_Right) renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye);
-			}
 		});
 		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
@@ -661,9 +636,8 @@ protected:
 	}
 
 	virtual void renderScene(const glm::mat4 & projection, const glm::mat4 & headPose, ovrEyeType eye) = 0;
-	virtual void changeState() = 0;
 	virtual void changeScale(int direction) = 0;
-	virtual void changeView() = 0;
+	virtual void moveLittleBox(vec3 direction) = 0;
 };
 
 //////////////////////////////////////////////////////////////////////
@@ -697,9 +671,6 @@ struct Scene {
 	SkyBox *littleBox;
 	SkyBox *left;
 	SkyBox *right;
-	SkyBox *leftImg;
-	SkyBox *rightImg;
-	SkyBox *my360;
 	GLuint shader;
 	float scaleFactor;
 
@@ -709,15 +680,8 @@ public:
 		littleBox = new SkyBox(0);
 		left = new SkyBox(1);
 		right = new SkyBox(2);
-		leftImg = new SkyBox(3);
-		rightImg = new SkyBox(4);
-		my360 = new SkyBox(5);
 		scaleFactor = .2f;
 		littleBox->setScale(scaleFactor);
-	}
-
-	void nextState() {
-		state = ((state + 1) % 4);
 	}
 
 	void changeScale(int direction) {
@@ -733,38 +697,14 @@ public:
 		littleBox->setScale(scaleFactor);
 	}
 
-	void changeView() {
-		viewState = (viewState + 1) % 5;
+	void moveLittleBox(vec3 direction) {
+		littleBox->translate(direction);
 	}
 
 	void render(const mat4 & projection, const mat4 & modelview, ovrEyeType eye) {
-		if (state == 0) {
-			view = modelview;
-		}
-		else if (state == 1) {
-		}
-		else if (state == 2) {
-			view[3] = modelview[3];
-		}
-		else {
-			view = mat4(mat3(modelview));
-		}
-
-		if (viewState == 1 || viewState == 2) {
-			if (eye == ovrEye_Left) { left->draw(shader, projection, view); }
-			else { right->draw(shader, projection, view); }
-		}
-		if (viewState == 0 || viewState == 2) {
-			littleBox->draw(shader, projection, view);
-		}
-		if (viewState == 3) {
-			if (eye == ovrEye_Left) { leftImg->draw(shader, projection, glm::mat4(1.0f)); }
-			else { rightImg->draw(shader, projection, glm::mat4(1.0f)); }
-		}
-		if (viewState == 4) {
-			if (eye == ovrEye_Left) { my360->draw(shader, projection, view); }
-			else { my360->draw(shader, projection, view); }
-		}
+		if (eye == ovrEye_Left) { left->draw(shader, projection, modelview); }
+		else { right->draw(shader, projection, modelview); }
+		littleBox->draw(shader, projection, modelview);
 	}
 };
 
@@ -789,16 +729,12 @@ protected:
 		//cubeScene.reset();
 	}
 
-	void changeState() {
-		cubeScene->nextState();
-	}
-
 	void changeScale(int direction) {
 		cubeScene->changeScale(direction);
 	}
 
-	void changeView() {
-		cubeScene->changeView();
+	void moveLittleBox(vec3 direction) {
+		cubeScene->moveLittleBox(direction);
 	}
 
 	void renderScene(const glm::mat4 & projection, const glm::mat4 & headPose, ovrEyeType eye) override {

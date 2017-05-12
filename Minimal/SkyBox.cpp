@@ -42,15 +42,7 @@ SkyBox::SkyBox(int state)
 		for (int i = 0; i < 6; i++) {
 			faces.push_back("../Minimal/Textures/vr_test_pattern.ppm");
 		}
-	}
-	else if (state == 5) {
-		scale(glm::vec3(5.0f, 20.0f, 5.0f));
-		faces.push_back("../Minimal/Textures/custom/left.ppm");
-		faces.push_back("../Minimal/Textures/custom/right.ppm");
-		faces.push_back("../Minimal/Textures/custom/top.ppm");
-		faces.push_back("../Minimal/Textures/custom/bottom.ppm");
-		faces.push_back("../Minimal/Textures/custom/back.ppm");
-		faces.push_back("../Minimal/Textures/custom/front.ppm");
+		translate(glm::vec3(0.0f, 0.0f, -0.4f));
 	}
 	else {
 		scale(100.0f);
@@ -70,24 +62,6 @@ SkyBox::SkyBox(int state)
 			faces.push_back("../Minimal/Textures/right-ppm/ny.ppm");
 			faces.push_back("../Minimal/Textures/right-ppm/pz.ppm");
 			faces.push_back("../Minimal/Textures/right-ppm/nz.ppm");
-		}
-
-		else if (state == 3) {
-			scale(0.01f);
-			translate(glm::vec3(0.0f, -0.05f, 0.0f));
-			//left, right, up, down, back, front = "../Minimal/Textures/vr_test_pattern.ppm";
-			for (int i = 0; i < 6; i++) {
-				faces.push_back("../Minimal/Textures/left.ppm");
-			}
-		}
-
-		else if (state == 4) {
-			scale(0.01f);
-			translate(glm::vec3(0.0f, -0.05f, 0.0f));
-			//left, right, up, down, back, front = "../Minimal/Textures/vr_test_pattern.ppm";
-			for (int i = 0; i < 6; i++) {
-				faces.push_back("../Minimal/Textures/right.ppm");
-			}
 		}
 	}
 
@@ -179,8 +153,9 @@ void SkyBox::translate(glm::vec3 transfactor) {
 }
 
 void SkyBox::setScale(float scalefactor) {
-	this->toWorld = glm::mat4(1.0f);
-	translate(glm::vec3(0.0f, 0.0f, -0.4f));
+	this->toWorld[0] = glm::mat4(1.0f)[0];
+	this->toWorld[1] = glm::mat4(1.0f)[1];
+	this->toWorld[2] = glm::mat4(1.0f)[2];
 	scale(scalefactor);
 }
 
