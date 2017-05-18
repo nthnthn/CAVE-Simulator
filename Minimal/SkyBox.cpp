@@ -45,7 +45,7 @@ SkyBox::SkyBox(int state)
 		translate(glm::vec3(0.0f, 0.0f, -0.4f));
 	}
 	else {
-		scale(100.0f);
+		scale(200.0f);
 		if (state == 1) {
 			faces.push_back("../Minimal/Textures/left-ppm/px.ppm");
 			faces.push_back("../Minimal/Textures/left-ppm/nx.ppm"); 
@@ -62,6 +62,15 @@ SkyBox::SkyBox(int state)
 			faces.push_back("../Minimal/Textures/right-ppm/ny.ppm");
 			faces.push_back("../Minimal/Textures/right-ppm/pz.ppm");
 			faces.push_back("../Minimal/Textures/right-ppm/nz.ppm");
+		}
+		else if (state == 3) {
+			scale(glm::vec3(1.0f, 4.0f , 1.0f));
+			faces.push_back("../Minimal/Textures/custom/left.ppm");
+			faces.push_back("../Minimal/Textures/custom/right.ppm");
+			faces.push_back("../Minimal/Textures/custom/top.ppm");
+			faces.push_back("../Minimal/Textures/custom/bottom.ppm");
+			faces.push_back("../Minimal/Textures/custom/back.ppm");
+			faces.push_back("../Minimal/Textures/custom/front.ppm");
 		}
 	}
 

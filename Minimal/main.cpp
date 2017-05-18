@@ -441,6 +441,8 @@ private:
 	ovrInputState inputState;
 	bool pressA, pressB = false;
 
+	ovrSizei myEyeL, myEyeR;
+
 public:
 
 	RiftApp() {
@@ -459,6 +461,9 @@ public:
 			_viewScaleDesc.HmdToEyeOffset[eye] = erd.HmdToEyeOffset;
 			ovrFovPort & fov = _sceneLayer.Fov[eye] = _eyeRenderDescs[eye].Fov;
 			auto eyeSize = ovr_GetFovTextureSize(_session, eye, fov, 1.0f);
+			if (eye == ovrEye_Left) 
+				myEyeL = eyeSize;
+			else myEyeR = eyeSize;
 			_sceneLayer.Viewport[eye].Size = eyeSize;
 			_sceneLayer.Viewport[eye].Pos = { (int)_renderTargetSize.x, 0 };
 
@@ -618,7 +623,10 @@ protected:
 			const auto& vp = _sceneLayer.Viewport[eye];
 			glViewport(vp.Pos.x, vp.Pos.y, vp.Size.w, vp.Size.h);
 			_sceneLayer.RenderPose[eye] = eyePoses[eye];
-			renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye);
+			if (eye == ovrEye_Left)
+				renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, vp, _fbo);
+			else
+				renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, vp, _fbo);
 
 		});
 		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
@@ -635,7 +643,7 @@ protected:
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 	}
 
-	virtual void renderScene(const glm::mat4 & projection, const glm::mat4 & headPose, ovrEyeType eye) = 0;
+	virtual void renderScene(const glm::mat4 & projection, const glm::mat4 & headPose, ovrEyeType eye, ovrRecti vp, GLuint _fbo) = 0;
 	virtual void changeScale(int direction) = 0;
 	virtual void moveLittleBox(vec3 direction) = 0;
 };
@@ -662,6 +670,7 @@ namespace Attribute {
 
 #include "SkyBox.h"
 #include "shader.h"
+#include "ScreenQuad.h"
 
 // a class for encapsulating building and rendering an RGB cube
 struct Scene {
@@ -671,15 +680,21 @@ struct Scene {
 	SkyBox *littleBox;
 	SkyBox *left;
 	SkyBox *right;
+	SkyBox *custom;
 	GLuint shader;
+	GLuint screenShader;
 	float scaleFactor;
+	ScreenQuad *screen;
 
 public:
 	Scene() {
 		shader = LoadShaders("../Minimal/shader.vert", "../Minimal/shader.frag");
+		screenShader = LoadShaders("../Minimal/screenShader.vert", "../Minimal/screenShader.frag");
 		littleBox = new SkyBox(0);
 		left = new SkyBox(1);
 		right = new SkyBox(2);
+		custom = new SkyBox(3);
+		screen = new ScreenQuad(0);
 		scaleFactor = .2f;
 		littleBox->setScale(scaleFactor);
 	}
@@ -701,10 +716,34 @@ public:
 		littleBox->translate(direction);
 	}
 
-	void render(const mat4 & projection, const mat4 & modelview, ovrEyeType eye) {
-		if (eye == ovrEye_Left) { left->draw(shader, projection, modelview); }
-		else { right->draw(shader, projection, modelview); }
-		littleBox->draw(shader, projection, modelview);
+	void render(const mat4 & projection, const mat4 & modelview, ovrEyeType eye, ovrRecti vp, GLuint _fbo) {
+		// Render to our framebuffer
+
+			glBindFramebuffer(GL_FRAMEBUFFER, screen->FramebufferName);
+			//glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			glEnable(GL_DEPTH_TEST);
+			glViewport(0, 0, 1024, 768); // Render on the whole framebuffer, complete from the lower left corner to the upper right
+
+			if (eye == ovrEye_Left) { left->draw(shader, projection, modelview); }
+			else { right->draw(shader, projection, modelview); }
+			littleBox->draw(shader, projection, modelview);
+
+			if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+				std::cerr << "error:framebuffer isnt complete" << std::endl;
+
+			// Render to the screen
+			glBindFramebuffer(GL_FRAMEBUFFER, _fbo);
+			glViewport(vp.Pos.x, vp.Pos.y, vp.Size.w, vp.Size.h); // Render on the whole framebuffer, complete from the lower left corner to the upper right
+			//glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT);
+			screen->draw(screenShader, projection, modelview);
+
+		
+		//custom->draw(shader, projection, modelview); 
+		//if (eye == ovrEye_Left) { left->draw(shader, projection, modelview); }
+		//else { right->draw(shader, projection, modelview); }
+		//littleBox->draw(shader, projection, modelview);
 	}
 };
 
@@ -737,9 +776,9 @@ protected:
 		cubeScene->moveLittleBox(direction);
 	}
 
-	void renderScene(const glm::mat4 & projection, const glm::mat4 & headPose, ovrEyeType eye) override {
+	void renderScene(const glm::mat4 & projection, const glm::mat4 & headPose, ovrEyeType eye, ovrRecti vp, GLuint _fbo) override {
 
-		cubeScene->render(projection, glm::inverse(headPose), eye);
+		cubeScene->render(projection, glm::inverse(headPose), eye, vp, _fbo);
 	}
 };
 

@@ -133,15 +133,19 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="ScreenQuad.cpp" />
     <ClCompile Include="shader.cpp" />
     <ClCompile Include="SkyBox.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="screenShader.frag" />
+    <None Include="screenShader.vert" />
     <None Include="shader.frag" />
     <None Include="shader.vert" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ScreenQuad.h" />
     <ClInclude Include="shader.h" />
     <ClInclude Include="SkyBox.h" />
   </ItemGroup>
