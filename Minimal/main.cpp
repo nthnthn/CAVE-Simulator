@@ -314,6 +314,9 @@ private:
 
 #include <OVR_CAPI.h>
 #include <OVR_CAPI_GL.h>
+#include "shader.h"
+#include "ScreenQuad.h"
+#include "SkyBox.h"
 
 namespace ovr {
 
@@ -442,11 +445,16 @@ private:
 	bool pressA, pressB = false;
 
 	ovrSizei myEyeL, myEyeR;
+	ScreenQuad * screen;
+    ScreenQuad * screen2;
+	GLuint screenShader, skyShader;
+	SkyBox *custom;
 
 public:
 
 	RiftApp() {
 		using namespace ovr;
+		
 		_viewScaleDesc.HmdSpaceToWorldScaleInMeters = 1.0f;
 
 		memset(&_sceneLayer, 0, sizeof(ovrLayerEyeFov));
@@ -536,6 +544,11 @@ protected:
 			FAIL("Could not create mirror texture");
 		}
 		glGenFramebuffers(1, &_mirrorFbo);
+		screenShader = LoadShaders("../Minimal/screenShader.vert", "../Minimal/screenShader.frag");
+		skyShader = LoadShaders("../Minimal/shader.vert", "../Minimal/shader.frag");
+		screen = new ScreenQuad(0);
+		screen2 = new ScreenQuad(0);
+		custom = new SkyBox(3);
 	}
 
 	void onKey(int key, int scancode, int action, int mods) override {
@@ -616,6 +629,25 @@ protected:
 		ovr_GetTextureSwapChainCurrentIndex(_session, _eyeTexture, &curIndex);
 		GLuint curTexId;
 		ovr_GetTextureSwapChainBufferGL(_session, _eyeTexture, curIndex, &curTexId);
+		
+
+
+
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, screen->FramebufferName);
+		
+		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screen->renderedTexture, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		ovr::for_each_eye([&](ovrEyeType eye) {
+			const auto& vp = _sceneLayer.Viewport[eye];
+			glViewport(0, 0, 1024, 768);
+			_sceneLayer.RenderPose[eye] = eyePoses[eye];
+
+			if(ovrEye_Left == eye) renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, vp, _fbo);
+			
+		});
+		//glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+		//glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
 		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, curTexId, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -623,14 +655,12 @@ protected:
 			const auto& vp = _sceneLayer.Viewport[eye];
 			glViewport(vp.Pos.x, vp.Pos.y, vp.Size.w, vp.Size.h);
 			_sceneLayer.RenderPose[eye] = eyePoses[eye];
-			if (eye == ovrEye_Left)
-				renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, vp, _fbo);
-			else
-				renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, vp, _fbo);
-
+			screen->draw(screenShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
+			custom->draw(skyShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
 		});
 		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
 		ovr_CommitTextureSwapChain(_session, _eyeTexture);
 		ovrLayerHeader* headerList = &_sceneLayer.Header;
 		ovr_SubmitFrame(_session, frame, &_viewScaleDesc, &headerList, 1);
@@ -643,6 +673,7 @@ protected:
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 	}
 
+	//TODO Remove the vp and _fbo from the parameters
 	virtual void renderScene(const glm::mat4 & projection, const glm::mat4 & headPose, ovrEyeType eye, ovrRecti vp, GLuint _fbo) = 0;
 	virtual void changeScale(int direction) = 0;
 	virtual void moveLittleBox(vec3 direction) = 0;
@@ -669,8 +700,8 @@ namespace Attribute {
 }
 
 #include "SkyBox.h"
-#include "shader.h"
-#include "ScreenQuad.h"
+//#include "shader.h"
+//#include "ScreenQuad.h"
 
 // a class for encapsulating building and rendering an RGB cube
 struct Scene {
@@ -680,21 +711,20 @@ struct Scene {
 	SkyBox *littleBox;
 	SkyBox *left;
 	SkyBox *right;
-	SkyBox *custom;
+	
 	GLuint shader;
 	GLuint screenShader;
 	float scaleFactor;
-	ScreenQuad *screen;
 
 public:
 	Scene() {
 		shader = LoadShaders("../Minimal/shader.vert", "../Minimal/shader.frag");
-		screenShader = LoadShaders("../Minimal/screenShader.vert", "../Minimal/screenShader.frag");
+		
 		littleBox = new SkyBox(0);
 		left = new SkyBox(1);
 		right = new SkyBox(2);
-		custom = new SkyBox(3);
-		screen = new ScreenQuad(0);
+
+
 		scaleFactor = .2f;
 		littleBox->setScale(scaleFactor);
 	}
@@ -719,31 +749,13 @@ public:
 	void render(const mat4 & projection, const mat4 & modelview, ovrEyeType eye, ovrRecti vp, GLuint _fbo) {
 		// Render to our framebuffer
 
-			glBindFramebuffer(GL_FRAMEBUFFER, screen->FramebufferName);
-			//glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			glEnable(GL_DEPTH_TEST);
-			glViewport(0, 0, 1024, 768); // Render on the whole framebuffer, complete from the lower left corner to the upper right
+			
+			
 
-			if (eye == ovrEye_Left) { left->draw(shader, projection, modelview); }
-			else { right->draw(shader, projection, modelview); }
-			littleBox->draw(shader, projection, modelview);
-
-			if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-				std::cerr << "error:framebuffer isnt complete" << std::endl;
-
-			// Render to the screen
-			glBindFramebuffer(GL_FRAMEBUFFER, _fbo);
-			glViewport(vp.Pos.x, vp.Pos.y, vp.Size.w, vp.Size.h); // Render on the whole framebuffer, complete from the lower left corner to the upper right
-			//glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-			glClear(GL_COLOR_BUFFER_BIT);
-			screen->draw(screenShader, projection, modelview);
-
-		
-		//custom->draw(shader, projection, modelview); 
-		//if (eye == ovrEye_Left) { left->draw(shader, projection, modelview); }
+		if (eye == ovrEye_Left) { left->draw(shader, projection, modelview); }
 		//else { right->draw(shader, projection, modelview); }
 		//littleBox->draw(shader, projection, modelview);
+
 	}
 };
 
@@ -758,7 +770,7 @@ public:
 protected:
 	void initGl() override {
 		RiftApp::initGl();
-		glClearColor(0.1f, 0.1f, 0.1f, 0.0f);
+		glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
 		glEnable(GL_DEPTH_TEST);
 		ovr_RecenterTrackingOrigin(_session);
 		cubeScene = std::shared_ptr<Scene>(new Scene());

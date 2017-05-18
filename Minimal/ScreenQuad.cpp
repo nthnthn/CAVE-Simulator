@@ -58,9 +58,10 @@ ScreenQuad::ScreenQuad(int state)
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadI), quadI, GL_STATIC_DRAW);
 
+	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
 
-	glEnableVertexAttribArray(0);
+
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -79,7 +80,7 @@ ScreenQuad::ScreenQuad(int state)
 	glBindTexture(GL_TEXTURE_2D, renderedTexture);
 
 	// Give an empty image to OpenGL ( the last "0" )
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1024, 768, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 2048, 2048, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
 
 	// Poor filtering. Needed !
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -92,7 +93,7 @@ ScreenQuad::ScreenQuad(int state)
 	GLuint depthrenderbuffer;
 	glGenRenderbuffers(1, &depthrenderbuffer);
 	glBindRenderbuffer(GL_RENDERBUFFER, depthrenderbuffer);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 1024, 768);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 2048, 2048);
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthrenderbuffer);
@@ -109,14 +110,18 @@ ScreenQuad::~ScreenQuad() {}
 
 void ScreenQuad::draw(GLuint shaderProgram, const glm::mat4 &projection, const glm::mat4 &modelview)
 {
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, renderedTexture);
 	glUseProgram(shaderProgram);
 
-	glBindTexture(GL_TEXTURE_2D, renderedTexture);
+	GLuint texId = glGetUniformLocation(shaderProgram, "texFramebuffer");
+	glUniform1i(texId, 0);
+
 	GLuint MatrixID = glGetUniformLocation(shaderProgram, "projection");
 	glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &projection[0][0]);
 
 	MatrixID = glGetUniformLocation(shaderProgram, "modelview");
-	glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &(modelview*toWorld)[0][0]);
+	glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &modelview[0][0]);
 
 	glBindVertexArray(VAO);
 

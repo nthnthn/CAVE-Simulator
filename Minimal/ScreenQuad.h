@@ -13,7 +13,7 @@ public:
 	void draw(GLuint, const glm::mat4 &, const glm::mat4 &);
 	GLuint FramebufferName;
 	GLuint renderedTexture;
-	GLfloat quadVerts[12];
+	GLfloat quadVerts[20];
 
 private:
 	glm::mat4 toWorld;
