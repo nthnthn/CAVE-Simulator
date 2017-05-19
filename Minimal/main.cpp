@@ -446,7 +446,8 @@ private:
 
 	ovrSizei myEyeL, myEyeR;
 	ScreenQuad * screen;
-    ScreenQuad * screen2;
+	ScreenQuad * screen2;
+	ScreenQuad * screen3;
 	GLuint screenShader, skyShader;
 	SkyBox *custom;
 
@@ -546,8 +547,9 @@ protected:
 		glGenFramebuffers(1, &_mirrorFbo);
 		screenShader = LoadShaders("../Minimal/screenShader.vert", "../Minimal/screenShader.frag");
 		skyShader = LoadShaders("../Minimal/shader.vert", "../Minimal/shader.frag");
-		screen = new ScreenQuad(0);
-		screen2 = new ScreenQuad(0);
+		screen = new ScreenQuad(1);
+		screen2 = new ScreenQuad(2);
+		screen3 = new ScreenQuad(3);
 		custom = new SkyBox(3);
 	}
 
@@ -634,16 +636,40 @@ protected:
 
 
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, screen->FramebufferName);
-		
+
 		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screen->renderedTexture, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		ovr::for_each_eye([&](ovrEyeType eye) {
 			const auto& vp = _sceneLayer.Viewport[eye];
-			glViewport(0, 0, 1024, 1024);
+			glViewport(0, 0, 512, 512);
 			_sceneLayer.RenderPose[eye] = eyePoses[eye];
 
-			if(ovrEye_Left == eye) renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, vp, _fbo);
-			
+			if (ovrEye_Left == eye) renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, vp, _fbo);
+
+		});
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, screen2->FramebufferName);
+
+		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screen2->renderedTexture, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		ovr::for_each_eye([&](ovrEyeType eye) {
+			const auto& vp = _sceneLayer.Viewport[eye];
+			glViewport(0, 0, 512, 512);
+			_sceneLayer.RenderPose[eye] = eyePoses[eye];
+
+			if (ovrEye_Left == eye) renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, vp, _fbo);
+
+		});
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, screen3->FramebufferName);
+
+		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screen3->renderedTexture, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		ovr::for_each_eye([&](ovrEyeType eye) {
+			const auto& vp = _sceneLayer.Viewport[eye];
+			glViewport(0, 0, 512, 512);
+			_sceneLayer.RenderPose[eye] = eyePoses[eye];
+
+			if (ovrEye_Left == eye) renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, vp, _fbo);
+
 		});
 		//glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
 		//glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
@@ -656,6 +682,8 @@ protected:
 			glViewport(vp.Pos.x, vp.Pos.y, vp.Size.w, vp.Size.h);
 			_sceneLayer.RenderPose[eye] = eyePoses[eye];
 			screen->draw(screenShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
+			screen2->draw(screenShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
+			screen3->draw(screenShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
 			custom->draw(skyShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
 		});
 		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
@@ -759,8 +787,8 @@ public:
 			
 
 		if (eye == ovrEye_Left) { left->draw(shader, projection, modelview); }
-		//else { right->draw(shader, projection, modelview); }
-		//littleBox->draw(shader, projection, modelview);
+		else { right->draw(shader, projection, modelview); }
+		littleBox->draw(shader, projection, modelview);
 
 	}
 };

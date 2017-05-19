@@ -5,5 +5,5 @@ uniform sampler2D texFramebuffer;
 
 void main()
 {
-    color = vec4(TexCoords, 0.0f, 1.0f);
+    color = texture(texFramebuffer, TexCoords);
 }
