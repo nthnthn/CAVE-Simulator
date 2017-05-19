@@ -101,15 +101,15 @@ ScreenQuad::ScreenQuad(int state)
 		quadVerts[5] = 0.0f;
 		quadVerts[6] = -1.2f;
 		quadVerts[7] = -1.697f;
-		quadVerts[8] = 1.0f;
-		quadVerts[9] = 0.0f;
+		quadVerts[8] = 0.0f;
+		quadVerts[9] = 1.0f;
 
 		//Back
 		quadVerts[10] = 0.0f;
 		quadVerts[11] = -1.2f;
 		quadVerts[12] = 1.697f;
-		quadVerts[13] = 0.0f;
-		quadVerts[14] = 1.0f;
+		quadVerts[13] = 1.0f;
+		quadVerts[14] = 0.0f;
 
 		//Right
 		quadVerts[15] = 1.697f;

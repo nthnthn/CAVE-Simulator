@@ -510,6 +510,46 @@ protected:
 		return glfw::createWindow(_mirrorSize);
 	}
 
+	mat4 calcScreenProjectionMatrix(vec3 userPos, vec3 topLeft, vec3 bottomLeft, vec3 bottomRight) {
+		glm::vec3 va, vb, vc, vr, vu, vn;
+		float l, r, b, t, n, d, f;
+		glm::mat4 P = glm::mat4(1.0f);
+		glm::mat4 T = glm::mat4(1.0f);
+		glm::mat4 M = glm::mat4(1.0f);
+
+
+		va = bottomLeft - userPos;
+		vb = bottomRight - userPos;
+		vc = topLeft - userPos;
+
+		vr = (bottomRight - bottomLeft) / glm::length(bottomRight - bottomLeft);
+		vu = (topLeft - bottomLeft) / glm::length(topLeft - bottomLeft);
+		vn = (glm::cross(vr, vu)) / glm::length(glm::cross(vr, vu));
+
+		n = 0.01f;
+		f = 1000.0f;
+		d = (-1.0f * glm::dot(vn, va));
+		l = glm::dot(vr, va) * n / d;
+		r = glm::dot(vr, vb) * n / d;
+		b = glm::dot(vu, va) * n / d;
+		t = glm::dot(vu, vc) * n / d;
+
+		// Setup Matrices
+		M[0] = vec4(vr, 0.0f);
+		M[1] = vec4(vu, 0.0f);
+		M[2] = vec4(vn, 0.0f);
+
+		T[3] = vec4((-1.0f * userPos), 1.0f);
+
+		P = { ((2.0f * n) / (r - l)),    0.0f,                   0.0f,                        0.0f,
+			  0.0f,                      ((2.0f * n) / (t - b)), 0.0f,                        0.0f,
+			  ((r + l) / (r - l)),       ((t + b) / (t - b)),    (-1.0f * ((f + n) / (f - n))),-1.0f,
+			  0.0f,                      0.0f,                   (-1.0f * ((2.0f * f * n) / (f - n))), 0.0f 
+		    };
+
+		return P*glm::transpose(M)*T;
+	}
+
 	void initGl() override {
 		GlfwApp::initGl();
 
@@ -614,6 +654,9 @@ protected:
 	void draw() final override {
 		ovrPosef eyePoses[2];
 		ovr_GetEyePoses(_session, frame, true, _viewScaleDesc.HmdToEyeOffset, eyePoses, &_sceneLayer.SensorSampleTime);
+
+		mat4 P = mat4(1.0f);
+		//P = calcScreenProjectionMatrix(vec3(sceneL[3]), screen->getVertex(2), screen->getVertex(0), screen->getVertex(1));
 
 		double displayMidpointSeconds = ovr_GetPredictedDisplayTime(_session, frame);
 		ovrTrackingState trackState = ovr_GetTrackingState(_session, displayMidpointSeconds, ovrTrue);
@@ -754,8 +797,9 @@ protected:
 			const auto& vp = _sceneLayer.Viewport[eye];
 			glViewport(0, 0, 1024, 1024);
 			_sceneLayer.RenderPose[eye] = eyePoses[eye];
+			P = calcScreenProjectionMatrix(vec3(sceneL[3]), screen->getVertex(2), screen->getVertex(0), screen->getVertex(1));
 
-			if (ovrEye_Left == eye) renderScene(_eyeProjections[eye], sceneL, eye, vp, _fbo);
+			if (ovrEye_Left == eye) renderScene(P, glm::mat4(1.0f), eye, vp, _fbo);
 
 		});
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, screen2->FramebufferName);
@@ -766,8 +810,9 @@ protected:
 			const auto& vp = _sceneLayer.Viewport[eye];
 			glViewport(0, 0, 1024, 1024);
 			_sceneLayer.RenderPose[eye] = eyePoses[eye];
+			P = calcScreenProjectionMatrix(vec3(sceneL[3]), screen2->getVertex(2), screen2->getVertex(0), screen2->getVertex(1));
 
-			if (ovrEye_Left == eye) renderScene(_eyeProjections[eye], sceneL, eye, vp, _fbo);
+			if (ovrEye_Left == eye) renderScene(P, glm::mat4(1.0f), eye, vp, _fbo);
 
 		});
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, screen3->FramebufferName);
@@ -778,8 +823,9 @@ protected:
 			const auto& vp = _sceneLayer.Viewport[eye];
 			glViewport(0, 0, 1024, 1024);
 			_sceneLayer.RenderPose[eye] = eyePoses[eye];
+			P = calcScreenProjectionMatrix(vec3(sceneL[3]), screen3->getVertex(1), screen3->getVertex(0), screen3->getVertex(2));
 
-			if (ovrEye_Left == eye) renderScene(_eyeProjections[eye], sceneL, eye, vp, _fbo);
+			if (ovrEye_Left == eye) renderScene(P, glm::mat4(1.0f), eye, vp, _fbo);
 
 		});
 
@@ -792,8 +838,9 @@ protected:
 			const auto& vp = _sceneLayer.Viewport[eye];
 			glViewport(0, 0, 1024, 1024);
 			_sceneLayer.RenderPose[eye] = eyePoses[eye];
+			P = calcScreenProjectionMatrix(vec3(sceneR[3]), screenR->getVertex(2), screenR->getVertex(0), screenR->getVertex(1));
 
-			if (ovrEye_Right == eye) renderScene(_eyeProjections[eye], sceneR, eye, vp, _fbo);
+			if (ovrEye_Right == eye) renderScene(P, glm::mat4(1.0f), eye, vp, _fbo);
 
 		});
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, screen2R->FramebufferName);
@@ -804,8 +851,9 @@ protected:
 			const auto& vp = _sceneLayer.Viewport[eye];
 			glViewport(0, 0, 1024, 1024);
 			_sceneLayer.RenderPose[eye] = eyePoses[eye];
-
-			if (ovrEye_Right == eye) renderScene(_eyeProjections[eye], sceneR, eye, vp, _fbo);
+			P = calcScreenProjectionMatrix(vec3(sceneR[3]), screen2R->getVertex(2), screen2R->getVertex(0), screen2R->getVertex(1));
+			
+			if (ovrEye_Right == eye) renderScene(P, glm::mat4(1.0f), eye, vp, _fbo);
 
 		});
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, screen3R->FramebufferName);
@@ -816,8 +864,9 @@ protected:
 			const auto& vp = _sceneLayer.Viewport[eye];
 			glViewport(0, 0, 1024, 1024);
 			_sceneLayer.RenderPose[eye] = eyePoses[eye];
+			P = calcScreenProjectionMatrix(vec3(sceneR[3]), screen3R->getVertex(1), screen3R->getVertex(0), screen3R->getVertex(2));
 
-			if (ovrEye_Right == eye) renderScene(_eyeProjections[eye], sceneR, eye, vp, _fbo);
+			if (ovrEye_Right == eye) renderScene(P, glm::mat4(1.0f), eye, vp, _fbo);
 			
 		});
 		//glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
