@@ -317,6 +317,7 @@ private:
 #include "shader.h"
 #include "ScreenQuad.h"
 #include "SkyBox.h"
+#include "Line.h"
 
 namespace ovr {
 
@@ -451,6 +452,20 @@ private:
 	ScreenQuad * screenR;
 	ScreenQuad * screen2R;
 	ScreenQuad * screen3R;
+	Line * leftBottomL;
+	Line * leftTopL;
+	Line * frontBottomL;
+	Line * frontTopL;
+	Line * rightBottomL;
+	Line * rightTopL;
+	Line * backBottomL;
+	Line * leftBottomR;
+	Line * leftTopR;
+	Line * frontBottomR;
+	Line * frontTopR;
+	Line * rightBottomR;
+	Line * rightTopR;
+	Line * backBottomR;
 	GLuint screenShader, skyShader, blankShader;
 	SkyBox *custom;
 	int screenFailure = 0;
@@ -561,6 +576,29 @@ protected:
 		screen2R = new ScreenQuad(2);
 		screen3R = new ScreenQuad(3);
 		custom = new SkyBox(3);
+
+		// Initializing Lines for wireframe
+		leftBottomL = new Line(screen->getVertex(0));
+		frontBottomL = new Line(screen->getVertex(1));
+		leftTopL = new Line(screen->getVertex(2));
+		frontTopL = new Line(screen->getVertex(3));
+		rightBottomL = new Line(screen2->getVertex(1));
+		rightTopL = new Line(screen2->getVertex(3));
+		backBottomL = new Line(screen3->getVertex(2));
+		leftBottomR = new Line(screenR->getVertex(0));
+		frontBottomR = new Line(screenR->getVertex(1));
+		leftTopR = new Line(screenR->getVertex(2));
+		frontTopR = new Line(screenR->getVertex(3));
+		rightBottomR = new Line(screen2R->getVertex(1));
+		rightTopR = new Line(screen2R->getVertex(3));
+		backBottomR = new Line(screen3R->getVertex(2));
+		leftBottomR->colorRed();
+		frontBottomR->colorRed();
+		leftTopR->colorRed();
+		frontTopR->colorRed();
+		rightBottomR->colorRed();
+		rightTopR->colorRed();
+		backBottomR->colorRed();
 	}
 
 	void onKey(int key, int scancode, int action, int mods) override {
@@ -673,13 +711,13 @@ protected:
 			else if (pressTrig) {
 				if (ovrEye_Left == eye) {
 					sceneL = glm::mat4(1.0f);
-					sceneL[3].x = rightX;
+					sceneL[3].x = rightX - 0.033f;
 					sceneL[3].y = rightY;
 					sceneL[3].z = rightZ;
 				}
 				else {
 					sceneR = glm::mat4(1.0f);
-					sceneR[3].x = rightX;
+					sceneR[3].x = rightX + 0.033f;
 					sceneR[3].y = rightY;
 					sceneR[3].z = rightZ;
 				}
@@ -687,6 +725,23 @@ protected:
 			else {
 				if (ovrEye_Left == eye) sceneL = ovr::toGlm(eyePoses[eye]);
 				else sceneR = ovr::toGlm(eyePoses[eye]);
+			}
+			if (pressA) {
+				leftBottomL->update(sceneL[3].x, sceneL[3].y, sceneL[3].z);
+				frontBottomL->update(sceneL[3].x, sceneL[3].y, sceneL[3].z);
+				leftTopL->update(sceneL[3].x, sceneL[3].y, sceneL[3].z);
+				frontTopL->update(sceneL[3].x, sceneL[3].y, sceneL[3].z);
+				rightBottomL->update(sceneL[3].x, sceneL[3].y, sceneL[3].z);
+				rightTopL->update(sceneL[3].x, sceneL[3].y, sceneL[3].z);
+				backBottomL->update(sceneL[3].x, sceneL[3].y, sceneL[3].z);
+
+				leftBottomR->update(sceneR[3].x, sceneR[3].y, sceneR[3].z);
+				frontBottomR->update(sceneR[3].x, sceneR[3].y, sceneR[3].z);
+				leftTopR->update(sceneR[3].x, sceneR[3].y, sceneR[3].z);
+				frontTopR->update(sceneR[3].x, sceneR[3].y, sceneR[3].z);
+				rightBottomR->update(sceneR[3].x, sceneR[3].y, sceneR[3].z);
+				rightTopR->update(sceneR[3].x, sceneR[3].y, sceneR[3].z);
+				backBottomR->update(sceneR[3].x, sceneR[3].y, sceneR[3].z);
 			}
 		});
 
@@ -784,6 +839,24 @@ protected:
 				screenR->draw(screenShader, blankShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])), (screenFailure == 4));
 				screen2R->draw(screenShader, blankShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])), (screenFailure == 5));
 				screen3R->draw(screenShader, blankShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])), (screenFailure == 6));
+			}
+			if (pressA) {
+
+				leftBottomL->draw(_eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
+				frontBottomL->draw(_eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
+				leftTopL->draw(_eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
+				frontTopL->draw(_eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
+				rightBottomL->draw(_eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
+				rightTopL->draw(_eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
+				backBottomL->draw(_eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
+
+				leftBottomR->draw(_eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
+				frontBottomR->draw(_eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
+				leftTopR->draw(_eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
+				frontTopR->draw(_eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
+				rightBottomR->draw(_eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
+				rightTopR->draw(_eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
+				backBottomR->draw(_eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
 			}
 			custom->draw(skyShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
 		});

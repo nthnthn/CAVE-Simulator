@@ -15,6 +15,7 @@ public:
 	GLuint FramebufferName;
 	GLuint renderedTexture;
 	GLfloat quadVerts[20];
+	glm::vec3 getVertex(int corner);
 
 private:
 	glm::mat4 toWorld;

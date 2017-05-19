@@ -90,28 +90,28 @@ ScreenQuad::ScreenQuad(int state)
 		quadVerts[19] = 1.0f;
 	}
 	else if (state == 3) {
-		//Bottom Left
+		//Left
 		quadVerts[0] = -1.697f;
 		quadVerts[1] = -1.2f;
 		quadVerts[2] = 0.0f;
 		quadVerts[3] = 0.0f;
 		quadVerts[4] = 0.0f;
 
-		//Bottom Right
+		//Front
 		quadVerts[5] = 0.0f;
 		quadVerts[6] = -1.2f;
 		quadVerts[7] = -1.697f;
 		quadVerts[8] = 1.0f;
 		quadVerts[9] = 0.0f;
 
-		//Top Left
+		//Back
 		quadVerts[10] = 0.0f;
 		quadVerts[11] = -1.2f;
 		quadVerts[12] = 1.697f;
 		quadVerts[13] = 0.0f;
 		quadVerts[14] = 1.0f;
 
-		//Top Right
+		//Right
 		quadVerts[15] = 1.697f;
 		quadVerts[16] = -1.2f;
 		quadVerts[17] = 0.0f;
@@ -190,6 +190,10 @@ ScreenQuad::ScreenQuad(int state)
 
 ScreenQuad::~ScreenQuad() {}
 
+
+glm::vec3 ScreenQuad::getVertex(int corner) {
+	return glm::vec3(quadVerts[corner * 5], quadVerts[corner * 5 + 1], quadVerts[corner * 5 + 2]);
+}
 
 void ScreenQuad::draw(GLuint shaderProgram, GLuint blankShader, const glm::mat4 &projection, const glm::mat4 &modelview, bool isFailing)
 {
