@@ -442,14 +442,20 @@ private:
 	uvec2 _mirrorSize;
 
 	ovrInputState inputState;
-	bool pressA, pressB = false;
-
+	bool pressA, pressB, pressX, pressTrig = false;
+	bool isFrozen = false;
 	ovrSizei myEyeL, myEyeR;
 	ScreenQuad * screen;
 	ScreenQuad * screen2;
 	ScreenQuad * screen3;
-	GLuint screenShader, skyShader;
+	ScreenQuad * screenR;
+	ScreenQuad * screen2R;
+	ScreenQuad * screen3R;
+	GLuint screenShader, skyShader, blankShader;
 	SkyBox *custom;
+	int screenFailure = 0;
+	mat4 sceneL = mat4(1.0f);
+	mat4 sceneR = mat4(1.0f);
 
 public:
 
@@ -547,9 +553,13 @@ protected:
 		glGenFramebuffers(1, &_mirrorFbo);
 		screenShader = LoadShaders("../Minimal/screenShader.vert", "../Minimal/screenShader.frag");
 		skyShader = LoadShaders("../Minimal/shader.vert", "../Minimal/shader.frag");
+		blankShader = LoadShaders("../Minimal/screenShader.vert", "../Minimal/blankShader.frag");
 		screen = new ScreenQuad(1);
 		screen2 = new ScreenQuad(2);
 		screen3 = new ScreenQuad(3);
+		screenR = new ScreenQuad(1);
+		screen2R = new ScreenQuad(2);
+		screen3R = new ScreenQuad(3);
 		custom = new SkyBox(3);
 	}
 
@@ -567,11 +577,24 @@ protected:
 		ovrPosef eyePoses[2];
 		ovr_GetEyePoses(_session, frame, true, _viewScaleDesc.HmdToEyeOffset, eyePoses, &_sceneLayer.SensorSampleTime);
 
+		double displayMidpointSeconds = ovr_GetPredictedDisplayTime(_session, frame);
+		ovrTrackingState trackState = ovr_GetTrackingState(_session, displayMidpointSeconds, ovrTrue);
+		//ovrPosef leftHandPose = trackState.HandPoses[ovrHand_Left].ThePose;
+		ovrPosef rightHandPose = trackState.HandPoses[ovrHand_Right].ThePose;
+		float rightX = rightHandPose.Position.x;
+		float rightY = rightHandPose.Position.y;
+		float rightZ = rightHandPose.Position.z;
+
 		if (OVR_SUCCESS(ovr_GetInputState(_session, ovrControllerType_Touch, &inputState))) {
 			
 			// viewpoint on right hand
-			if (inputState.HandTrigger[ovrHand_Right] > 0.5f) {
-
+			if (inputState.HandTrigger[ovrHand_Right] > 0.5f && !pressTrig) {
+				std::cerr << "Middle Trigger Pressed\n";
+				pressTrig = true;
+			}
+			else if (!(inputState.HandTrigger[ovrHand_Right] > 0.5f) && pressTrig) {
+				std::cerr << "Middle Trigger Released\n";
+				pressTrig = false;
 			}
 
 			// debug
@@ -587,11 +610,23 @@ protected:
 			// freeze viewpoint
 			if (inputState.Buttons & ovrButton_B && !pressB) {
 				std::cerr << "B Pressed\n";
+				isFrozen = !isFrozen;
 				pressB = true;
 			}
 			else if (!(inputState.Buttons & ovrButton_B) && pressB) {
 				std::cerr << "B Released\n";
 				pressB = false;
+			}
+
+			if (inputState.Buttons & ovrButton_X && !pressX) {
+				std::cerr << "X Pressed\n";
+				pressX = true;
+				screenFailure = (std::rand() % 6) + 1;
+			}
+			else if (!(inputState.Buttons & ovrButton_X) && pressX) {
+				std::cerr << "X Released\n";
+				pressX = false;
+				screenFailure = 0;
 			}
 
 			// left/right
@@ -632,19 +667,40 @@ protected:
 		GLuint curTexId;
 		ovr_GetTextureSwapChainBufferGL(_session, _eyeTexture, curIndex, &curTexId);
 		
+		ovr::for_each_eye([&](ovrEyeType eye) {
+			if (isFrozen) {
+			}
+			else if (pressTrig) {
+				if (ovrEye_Left == eye) {
+					sceneL = glm::mat4(1.0f);
+					sceneL[3].x = rightX;
+					sceneL[3].y = rightY;
+					sceneL[3].z = rightZ;
+				}
+				else {
+					sceneR = glm::mat4(1.0f);
+					sceneR[3].x = rightX;
+					sceneR[3].y = rightY;
+					sceneR[3].z = rightZ;
+				}
+			}
+			else {
+				if (ovrEye_Left == eye) sceneL = ovr::toGlm(eyePoses[eye]);
+				else sceneR = ovr::toGlm(eyePoses[eye]);
+			}
+		});
 
-
-
+		//LEFT EYE BUFFERS
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, screen->FramebufferName);
 
 		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screen->renderedTexture, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		ovr::for_each_eye([&](ovrEyeType eye) {
 			const auto& vp = _sceneLayer.Viewport[eye];
-			glViewport(0, 0, 512, 512);
+			glViewport(0, 0, 1024, 1024);
 			_sceneLayer.RenderPose[eye] = eyePoses[eye];
 
-			if (ovrEye_Left == eye) renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, vp, _fbo);
+			if (ovrEye_Left == eye) renderScene(_eyeProjections[eye], sceneL, eye, vp, _fbo);
 
 		});
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, screen2->FramebufferName);
@@ -653,10 +709,10 @@ protected:
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		ovr::for_each_eye([&](ovrEyeType eye) {
 			const auto& vp = _sceneLayer.Viewport[eye];
-			glViewport(0, 0, 512, 512);
+			glViewport(0, 0, 1024, 1024);
 			_sceneLayer.RenderPose[eye] = eyePoses[eye];
 
-			if (ovrEye_Left == eye) renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, vp, _fbo);
+			if (ovrEye_Left == eye) renderScene(_eyeProjections[eye], sceneL, eye, vp, _fbo);
 
 		});
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, screen3->FramebufferName);
@@ -665,11 +721,49 @@ protected:
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		ovr::for_each_eye([&](ovrEyeType eye) {
 			const auto& vp = _sceneLayer.Viewport[eye];
-			glViewport(0, 0, 512, 512);
+			glViewport(0, 0, 1024, 1024);
 			_sceneLayer.RenderPose[eye] = eyePoses[eye];
 
-			if (ovrEye_Left == eye) renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, vp, _fbo);
+			if (ovrEye_Left == eye) renderScene(_eyeProjections[eye], sceneL, eye, vp, _fbo);
 
+		});
+
+		//RIGHT EYE BUFFERS
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, screenR->FramebufferName);
+
+		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screenR->renderedTexture, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		ovr::for_each_eye([&](ovrEyeType eye) {
+			const auto& vp = _sceneLayer.Viewport[eye];
+			glViewport(0, 0, 1024, 1024);
+			_sceneLayer.RenderPose[eye] = eyePoses[eye];
+
+			if (ovrEye_Right == eye) renderScene(_eyeProjections[eye], sceneR, eye, vp, _fbo);
+
+		});
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, screen2R->FramebufferName);
+
+		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screen2R->renderedTexture, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		ovr::for_each_eye([&](ovrEyeType eye) {
+			const auto& vp = _sceneLayer.Viewport[eye];
+			glViewport(0, 0, 1024, 1024);
+			_sceneLayer.RenderPose[eye] = eyePoses[eye];
+
+			if (ovrEye_Right == eye) renderScene(_eyeProjections[eye], sceneR, eye, vp, _fbo);
+
+		});
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, screen3R->FramebufferName);
+
+		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screen3R->renderedTexture, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		ovr::for_each_eye([&](ovrEyeType eye) {
+			const auto& vp = _sceneLayer.Viewport[eye];
+			glViewport(0, 0, 1024, 1024);
+			_sceneLayer.RenderPose[eye] = eyePoses[eye];
+
+			if (ovrEye_Right == eye) renderScene(_eyeProjections[eye], sceneR, eye, vp, _fbo);
+			
 		});
 		//glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
 		//glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
@@ -681,9 +775,16 @@ protected:
 			const auto& vp = _sceneLayer.Viewport[eye];
 			glViewport(vp.Pos.x, vp.Pos.y, vp.Size.w, vp.Size.h);
 			_sceneLayer.RenderPose[eye] = eyePoses[eye];
-			screen->draw(screenShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
-			screen2->draw(screenShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
-			screen3->draw(screenShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
+			if (eye == ovrEye_Left) {
+				screen->draw(screenShader, blankShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])), (screenFailure == 1));
+				screen2->draw(screenShader, blankShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])), (screenFailure == 2));
+				screen3->draw(screenShader, blankShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])), (screenFailure == 3));
+			}
+			else {
+				screenR->draw(screenShader, blankShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])), (screenFailure == 4));
+				screen2R->draw(screenShader, blankShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])), (screenFailure == 5));
+				screen3R->draw(screenShader, blankShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])), (screenFailure == 6));
+			}
 			custom->draw(skyShader, _eyeProjections[eye], glm::inverse(ovr::toGlm(eyePoses[eye])));
 		});
 		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);

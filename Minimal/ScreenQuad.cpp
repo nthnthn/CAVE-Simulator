@@ -163,7 +163,7 @@ ScreenQuad::ScreenQuad(int state)
 	glBindTexture(GL_TEXTURE_2D, renderedTexture);
 
 	// Give an empty image to OpenGL ( the last "0" )
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 512, 512, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1024, 1024, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
 
 	// Poor filtering. Needed !
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -176,7 +176,7 @@ ScreenQuad::ScreenQuad(int state)
 	GLuint depthrenderbuffer;
 	glGenRenderbuffers(1, &depthrenderbuffer);
 	glBindRenderbuffer(GL_RENDERBUFFER, depthrenderbuffer);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 512, 512);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 1024, 1024);
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthrenderbuffer);
@@ -191,19 +191,21 @@ ScreenQuad::ScreenQuad(int state)
 ScreenQuad::~ScreenQuad() {}
 
 
-void ScreenQuad::draw(GLuint shaderProgram, const glm::mat4 &projection, const glm::mat4 &modelview)
+void ScreenQuad::draw(GLuint shaderProgram, GLuint blankShader, const glm::mat4 &projection, const glm::mat4 &modelview, bool isFailing)
 {
+	GLuint shader = (isFailing) ? blankShader : shaderProgram;
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, renderedTexture);
-	glUseProgram(shaderProgram);
+	glUseProgram(shader);
 
-	GLuint texId = glGetUniformLocation(shaderProgram, "texFramebuffer");
+	GLuint texId = glGetUniformLocation(shader, "texFramebuffer");
 	glUniform1i(texId, 0);
 
-	GLuint MatrixID = glGetUniformLocation(shaderProgram, "projection");
+	
+	GLuint MatrixID = glGetUniformLocation(shader, "projection");
 	glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &projection[0][0]);
 
-	MatrixID = glGetUniformLocation(shaderProgram, "modelview");
+	MatrixID = glGetUniformLocation(shader, "modelview");
 	glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &modelview[0][0]);
 
 	glBindVertexArray(VAO);
@@ -211,5 +213,5 @@ void ScreenQuad::draw(GLuint shaderProgram, const glm::mat4 &projection, const g
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 	
-
+	
 }

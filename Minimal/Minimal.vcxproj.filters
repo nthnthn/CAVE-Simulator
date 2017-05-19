@@ -42,6 +42,9 @@
     <None Include="screenShader.vert">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="blankShader.frag">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkyBox.h">

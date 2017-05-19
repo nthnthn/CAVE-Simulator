@@ -138,6 +138,7 @@
     <ClCompile Include="SkyBox.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="blankShader.frag" />
     <None Include="packages.config" />
     <None Include="screenShader.frag" />
     <None Include="screenShader.vert" />

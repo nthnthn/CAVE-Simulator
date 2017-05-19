@@ -11,7 +11,7 @@ class ScreenQuad
 public:
 	ScreenQuad(int state);
 	~ScreenQuad();
-	void draw(GLuint, const glm::mat4 &, const glm::mat4 &);
+	void draw(GLuint, GLuint, const glm::mat4 &, const glm::mat4 &, bool isFailing);
 	GLuint FramebufferName;
 	GLuint renderedTexture;
 	GLfloat quadVerts[20];
