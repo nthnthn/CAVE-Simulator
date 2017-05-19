@@ -5,6 +5,7 @@
 #include<glm\glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <iostream>
 class ScreenQuad
 {
 public:
@@ -18,7 +19,7 @@ public:
 private:
 	glm::mat4 toWorld;
 	GLfloat angle;
-	GLuint VBO, VAO, EBO;
+	GLuint VBO, VAO, EBO, VUV;
 };
 
 #endif

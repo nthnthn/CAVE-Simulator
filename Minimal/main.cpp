@@ -639,7 +639,7 @@ protected:
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		ovr::for_each_eye([&](ovrEyeType eye) {
 			const auto& vp = _sceneLayer.Viewport[eye];
-			glViewport(0, 0, 1024, 768);
+			glViewport(0, 0, 1024, 1024);
 			_sceneLayer.RenderPose[eye] = eyePoses[eye];
 
 			if(ovrEye_Left == eye) renderScene(_eyeProjections[eye], ovr::toGlm(eyePoses[eye]), eye, vp, _fbo);
@@ -671,6 +671,12 @@ protected:
 		glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mirrorTextureId, 0);
 		glBlitFramebuffer(0, 0, _mirrorSize.x, _mirrorSize.y, 0, _mirrorSize.y, _mirrorSize.x, 0, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+
+		GLenum err;
+		while ((err = glGetError()) != GL_NO_ERROR)
+		{
+			std::cerr << err << " A" << std::endl;
+		}
 	}
 
 	//TODO Remove the vp and _fbo from the parameters
